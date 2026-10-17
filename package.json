@@ -1,0 +1,10 @@
+{
+  "name": "panier-perdu",
+  "version": "0.1.0",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "stripe": "^17.0.0"
+  }
+}
