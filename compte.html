@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mon compte — Panier Perdu</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0F3D2E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="haut"><a href="/">← Panier Perdu</a></div>
+<main>
+<h1>Mon compte</h1>
+<p id="chargement" class="maj">Chargement…</p>
+
+<div id="contenu" hidden>
+  <p>Connecté en tant que <strong id="email"></strong></p>
+
+  <h2>Abonnement</h2>
+  <p id="abonnement"></p>
+
+  <h2>Ma boutique</h2>
+  <p>La connexion de ta boutique Shopify ou WooCommerce sera disponible à l'ouverture, le 28 novembre 2026. Tu seras prévenu par e-mail.</p>
+
+  <button class="btn secondaire" type="button" id="sortir">Se déconnecter</button>
+</div>
+
+<p id="erreur" class="retour erreur" role="alert" hidden></p>
+</main>
+<footer>
+<a href="/mentions-legales.html">Mentions légales</a>·<a href="/cgv.html">CGV</a>·<a href="/confidentialite.html">Confidentialité</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function () {
+  var chargement = document.getElementById("chargement");
+  var contenu = document.getElementById("contenu");
+  var erreur = document.getElementById("erreur");
+
+  function echec(texte) {
+    chargement.hidden = true;
+    erreur.textContent = texte;
+    erreur.hidden = false;
+  }
+
+  async function demarrer() {
+    var r = await fetch("/api/config");
+    if (!r.ok) throw new Error("config");
+    var c = await r.json();
+    var sb = window.supabase.createClient(c.supabaseUrl, c.supabaseAnonKey);
+
+    var s = await sb.auth.getSession();
+    var session = s.data && s.data.session;
+    if (!session) {
+      window.location.replace("/connexion.html");
+      return;
+    }
+    // Retire le jeton de l'adresse affichée.
+    history.replaceState(null, "", window.location.pathname);
+
+    document.getElementById("email").textContent = session.user.email;
+
+    var q = await sb
+      .from("subscriptions")
+      .select("status,current_period_end")
+      .order("created_at", { ascending: false })
+      .limit(1);
+    if (q.error) throw q.error;
+
+    var abo = document.getElementById("abonnement");
+    var ligne = q.data && q.data[0];
+    if (ligne && (ligne.status === "active" || ligne.status === "trialing")) {
+      var texte = "Abonnement actif.";
+      if (ligne.current_period_end) {
+        var date = new Date(ligne.current_period_end).toLocaleDateString("fr-FR", {
+          day: "numeric", month: "long", year: "numeric"
+        });
+        texte += " Prochain renouvellement le " + date + ".";
+      }
+      abo.textContent = texte;
+    } else {
+      abo.textContent = "Aucun abonnement actif sur cette adresse.";
+    }
+
+    document.getElementById("sortir").addEventListener("click", async function () {
+      await sb.auth.signOut();
+      window.location.replace("/");
+    });
+
+    chargement.hidden = true;
+    contenu.hidden = false;
+  }
+
+  demarrer().catch(function () {
+    echec("Impossible de charger ton compte pour le moment. Réessaie dans un instant.");
+  });
+})();
+</script>
+</body>
+</html>

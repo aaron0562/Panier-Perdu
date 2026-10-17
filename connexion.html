@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Connexion — Panier Perdu</title>
+<meta name="robots" content="noindex">
+<meta name="theme-color" content="#0F3D2E">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<div class="haut"><a href="/">← Panier Perdu</a></div>
+<main>
+<h1>Connexion</h1>
+<p>Entre l'adresse e-mail utilisée pour ton abonnement. Tu recevras un lien de connexion, sans mot de passe à retenir.</p>
+
+<form id="form" novalidate>
+  <label for="email">Adresse e-mail</label>
+  <input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" required placeholder="toi@exemple.fr">
+  <button class="btn" type="submit" id="envoi">Recevoir mon lien</button>
+</form>
+
+<p id="message" class="retour" role="status" aria-live="polite" hidden></p>
+</main>
+<footer>
+<a href="/mentions-legales.html">Mentions légales</a>·<a href="/cgv.html">CGV</a>·<a href="/confidentialite.html">Confidentialité</a>
+</footer>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+(function () {
+  var form = document.getElementById("form");
+  var champ = document.getElementById("email");
+  var bouton = document.getElementById("envoi");
+  var message = document.getElementById("message");
+
+  function afficher(texte, erreur) {
+    message.textContent = texte;
+    message.className = "retour" + (erreur ? " erreur" : " ok");
+    message.hidden = false;
+  }
+
+  async function client() {
+    var r = await fetch("/api/config");
+    if (!r.ok) throw new Error("config");
+    var c = await r.json();
+    return window.supabase.createClient(c.supabaseUrl, c.supabaseAnonKey);
+  }
+
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var email = champ.value.trim().toLowerCase();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      afficher("Cette adresse e-mail ne semble pas valide.", true);
+      return;
+    }
+    bouton.disabled = true;
+    message.hidden = true;
+    try {
+      var sb = await client();
+      var res = await sb.auth.signInWithOtp({
+        email: email,
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: window.location.origin + "/compte.html"
+        }
+      });
+      if (res.error && (res.error.status === 429 || /rate limit/i.test(res.error.message || ""))) {
+        afficher("Trop de demandes pour le moment. Réessaie dans quelques minutes.", true);
+      } else {
+        // Même message que l'adresse existe ou non : on ne révèle pas qui est abonné.
+        afficher("Si cette adresse correspond à un abonnement, un lien de connexion vient d'être envoyé. Pense à vérifier tes courriers indésirables.", false);
+      }
+    } catch (err) {
+      afficher("Impossible d'envoyer le lien pour le moment. Réessaie dans un instant.", true);
+    } finally {
+      bouton.disabled = false;
+    }
+  });
+})();
+</script>
+</body>
+</html>
